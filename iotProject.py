@@ -3,6 +3,7 @@
 ########################################################################
 
 import boto
+import boto3
 import boto.dynamodb2
 import time
 from datetime import datetime
@@ -36,7 +37,10 @@ client_dynamo = boto.dynamodb2.connect_to_region(
         security_token=assumedRoleObject.credentials.session_token)
 table_dynamo = Table(DYNAMO_TABLE_NAME,connection=client_dynamo)
 
-
+client = boto3.client('sns','us-east-1')
+response = client.create_topic(Name = 'iotpj')
+topicArn = response['TopicArn']
+response = client.subscribe(TopicArn = topicArn, Protocol = 'sms', Endpoint = '+16463312065')
 
 ## Read Sensor Values
 try:
@@ -59,6 +63,11 @@ while(1):
         dust = dustSensor.read()
         co2 = co2Sensor.ppm()
         co2V = co2Sensor.volts()
+
+        if gas > 35:
+            client.publish(TopicArn = topicArn,
+                  Message = 'Gas: ' + str(gas),
+                  Subject = 'monitoring')
 
         table_dynamo.put_item(
                        data={
